@@ -1,0 +1,13 @@
+# Parte privada de cada empresa: nunca versionar
+local/
+*.local.json
+eval_vars.yaml
+!local.example/eval_vars.yaml
+
+# Python
+__pycache__/
+.venv/
+
+# SO
+.DS_Store
+Thumbs.db

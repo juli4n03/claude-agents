@@ -1,0 +1,7 @@
+# Valores reais para os casos de evals/casos.yaml. Fica em ~/.claude/local/, nunca vai para o git.
+notebook_existente: analises/20260101_exemplo.ipynb
+tabela: schema.tabela_fato
+tabela_dim: schema.tabela_dimensao
+coluna_categoria: categoria
+coluna_numerica: valor
+grao: id_cliente

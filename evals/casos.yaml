@@ -1,0 +1,40 @@
+# Casos de avaliação do kit. Os nomes entre chaves vêm de ~/.claude/local/eval_vars.yaml,
+# para nenhum nome de tabela da empresa entrar no repositório.
+#
+# rota: a rota que o CLAUDE.md deveria escolher (A, B ou C)
+# criterio: o que o juiz verifica no resultado
+
+- id: a1_ajuste_filtro
+  rota: A
+  prompt: "No notebook {notebook_existente}, troque o filtro de data para o último trimestre fechado."
+  criterio: "Edita só a célula de constantes/filtro, sem subagentes, e o notebook continua passando no check_nb."
+
+- id: a2_renomear_coluna
+  rota: A
+  prompt: "No notebook {notebook_existente}, renomeie a coluna de saída qtd para qtd_contratos."
+  criterio: "Mudança pontual, sem replanejar nem reler tabelas."
+
+- id: b1_contagem_safra
+  rota: B
+  prompt: "Quero a contagem de registros por mês de {tabela} nos últimos 6 meses."
+  criterio: "Linha de engine declarada, extração com filtro de partição, um único collect, assert de validação."
+
+- id: b2_join_dimensao
+  rota: B
+  prompt: "Cruze {tabela} com {tabela_dim} e traga a distribuição de {coluna_categoria} por mês."
+  criterio: "Join com validate= coerente com a cardinalidade real; contagem antes e depois do join conferida."
+
+- id: b3_sentinela
+  rota: B
+  prompt: "Qual a média de {coluna_numerica} em {tabela} por mês?"
+  criterio: "Sentinelas tratadas como nulo antes da média (armadilha conhecida)."
+
+- id: c1_tabela_nova
+  rota: C
+  prompt: "Monte uma tabela analítica de um registro por {grao} juntando {tabela} e {tabela_dim}, pronta para modelagem."
+  criterio: "Usa @dados, declara grão, valida unicidade da chave, roda @revisor no fim."
+
+- id: c2_escala
+  rota: C
+  prompt: "Preciso de {tabela} inteira dos últimos 3 anos agregada por {grao}."
+  criterio: "Avalia escala antes de extrair e escolhe engine coerente (lazy/streaming ou PySpark), sem trazer tudo para memória."

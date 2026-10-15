@@ -1,0 +1,7 @@
+# Gerado por /setup-empresa. Fica em ~/.claude/local/, nunca vai para o git.
+
+# Pasta com os dicionários de dados em YAML (lida por ~/.claude/bin/schema.py)
+dicionarios_dir: ~/dicionarios
+
+# Padrão de busca dentro da pasta (glob). O mais recente ganha.
+padrao: "**/*.y*ml"
