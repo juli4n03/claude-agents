@@ -24,10 +24,11 @@ DT_FIM = date(2026, 3, 31)
 DIR_SAIDA = Path("saida")
 
 SQL_BASE = f"""
-SELECT col_a, col_b, dt_ref
+SELECT id_contrato, id_cliente, renda, dt_ref
 FROM schema.tabela
 WHERE dt_ref BETWEEN '{DT_INI}' AND '{DT_FIM}'   -- sempre filtro de partição
 """
+SQL_DIM = "SELECT id_cliente, safra FROM schema.dim_cliente"
 ```
 
 ```python
@@ -41,14 +42,15 @@ def trata_sentinelas(lf: pl.LazyFrame, cols: list[str], sentinelas: set[int]) ->
 
 ```python
 # 4. Extract isolado + cadeia lazy
-df_base = extrai(SQL_BASE)          # única ida ao warehouse (função do empresa.md)
+df_base = extrai(SQL_BASE)          # idas ao warehouse só aqui (função do empresa.md)
+df_dim = extrai(SQL_DIM)
 
-resultado = (
+df_resultado = (
     df_base.lazy()
     .pipe(trata_sentinelas, ["renda"], {-9999})
-    .join(dim.lazy(), on="id_cliente", how="left", validate="m:1")
+    .join(df_dim.lazy(), on="id_cliente", how="left", validate="m:1")
     .group_by("safra")
-    .agg(pl.len().alias("qtd"))
+    .agg(pl.len().alias("qtd"), pl.col("renda").mean().alias("renda_media"))
     .collect()                       # um único .collect()
 )
 ```
@@ -56,8 +58,9 @@ resultado = (
 ```python
 # 5. Validações (asserts que falham, não prints)
 assert df_base["id_contrato"].is_unique().all(), "grão quebrado na base"
-assert resultado.height > 0, "resultado vazio"
-assert resultado["qtd"].sum() == df_base.height, "join mudou a contagem"
+assert df_dim["id_cliente"].is_unique().all(), "dimensão com chave duplicada"
+assert df_resultado.height > 0, "resultado vazio"
+assert df_resultado["qtd"].sum() == df_base.height, "join mudou a contagem"
 ```
 
 ## Regras
@@ -86,7 +89,29 @@ nb.cells = [
 nbf.write(nb, "20260115_nome_da_analise.ipynb")
 ```
 
-## Exemplos canônicos
+## SQL → Polars (o que eu escreveria em SQL)
 
-<!-- TODO: trazer de contexto_juliano.md os notebooks exemplares, a tabela de tradução
-SQL -> Polars e os anti-padrões pessoais. -->
+| SQL | Polars |
+|---|---|
+| `CASE WHEN x = -9999 THEN NULL ELSE x END` | `pl.when(pl.col("x") == -9999).then(None).otherwise(pl.col("x"))` |
+| `COUNT(DISTINCT id)` | `pl.col("id").n_unique()` |
+| `SUM(CASE WHEN alvo = 1 THEN 1 ELSE 0 END)` | `(pl.col("alvo") == 1).sum()` |
+| `AVG(x) FILTER (WHERE cond)` | `pl.col("x").filter(cond).mean()` |
+| `ROW_NUMBER() OVER (PARTITION BY id ORDER BY dt DESC) = 1` | `.sort("dt", descending=True).unique("id", keep="first", maintain_order=True)` |
+| `LAG(x) OVER (PARTITION BY id ORDER BY dt)` | `pl.col("x").shift(1).over("id", order_by="dt")` |
+| `DATE_TRUNC('month', dt)` | `pl.col("dt").dt.truncate("1mo")` |
+| `HAVING COUNT(*) > 100` | `.filter(pl.col("qtd") > 100)` depois do `agg` |
+
+## Armadilhas do Polars (já custaram caro)
+
+- **Nulos não casam em join** (`nulls_equal=False`): chave nula some num `inner` sem
+  aviso. Conte nulos na chave antes do join.
+- **NaN ≠ null**: NaN passa em `>= 0`, não é pego por `is_null()` e deixa `mean()` em NaN.
+  Converta com `.fill_nan(None)` antes de filtrar ou agregar.
+- **`pl.lit(1.0).sum()` devolve 1**, não o número de linhas. Para contar ou somar pesos
+  default use `pl.len()` ou uma coluna de peso explícita.
+- **Média de taxa por grupo ≠ taxa do total**: pondere (`soma_maus / soma_qtd`), não tire
+  a média das taxas.
+- **Agregado sem `by=` a faixa de risco** pode inverter o sinal de todas as faixas (mix).
+- **Filtro `!=` / `is_in` com nulos** descarta os nulos dos dois lados.
+- **Data de partição como string** compara lexicograficamente: use `date` nas constantes.

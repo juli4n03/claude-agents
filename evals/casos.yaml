@@ -1,16 +1,26 @@
 # Casos de avaliação do kit. Os nomes entre chaves vêm de ~/.claude/local/eval_vars.yaml,
 # para nenhum nome de tabela da empresa entrar no repositório.
 #
-# rota: a rota que o CLAUDE.md deveria escolher (A, B ou C)
+# rota: a rota que o CLAUDE.md deveria escolher (0, A, B ou C), conferida na 1ª linha
+# subagentes: (opcional) exatamente os subagentes esperados; [] = nenhum
+# skills: (opcional) skills que precisam ter sido carregadas
 # criterio: o que o juiz verifica no resultado
+
+- id: q1_pergunta_iv
+  rota: "0"
+  subagentes: []
+  prompt: "Uma variável deu IV de 0,62 contra o target. Isso é bom?"
+  criterio: "Responde direto que IV acima de 0,5 é suspeito de vazamento e diz o que checar; não cria notebook."
 
 - id: a1_ajuste_filtro
   rota: A
+  subagentes: []
   prompt: "No notebook {notebook_existente}, troque o filtro de data para o último trimestre fechado."
   criterio: "Edita só a célula de constantes/filtro, sem subagentes, e o notebook continua passando no check_nb."
 
 - id: a2_renomear_coluna
   rota: A
+  subagentes: []
   prompt: "No notebook {notebook_existente}, renomeie a coluna de saída qtd para qtd_contratos."
   criterio: "Mudança pontual, sem replanejar nem reler tabelas."
 
@@ -31,6 +41,7 @@
 
 - id: c1_tabela_nova
   rota: C
+  subagentes: [dados, revisor]
   prompt: "Monte uma tabela analítica de um registro por {grao} juntando {tabela} e {tabela_dim}, pronta para modelagem."
   criterio: "Usa @dados, declara grão, valida unicidade da chave, roda @revisor no fim."
 
@@ -38,3 +49,15 @@
   rota: C
   prompt: "Preciso de {tabela} inteira dos últimos 3 anos agregada por {grao}."
   criterio: "Avalia escala antes de extrair e escolhe engine coerente (lazy/streaming ou PySpark), sem trazer tudo para memória."
+
+- id: b4_poder_preditivo
+  rota: B
+  skills: [estilo-analise, data-profiler]
+  prompt: "Faça o profiling e o poder preditivo das variáveis de {tabela} contra {target}, por safra."
+  criterio: "Usa profile/poder_preditivo do data_profiler (não reimplementa IV/KS), passa coluna de safra, trata vazamento e safras imaturas."
+
+- id: b5_margem_contrato
+  rota: "0"
+  skills: [analise-credito]
+  prompt: "Qual a margem em NPV de um contrato de R$ 3.000 em 12x a 7,5% a.m. com PD de 5%?"
+  criterio: "Usa a skill de crédito, calcula a perda sobre o total do contrato (não o principal), declara os parâmetros usados e de onde vieram."

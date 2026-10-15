@@ -40,11 +40,16 @@ Copie os modelos de `~/.claude/local.example/` e preencha:
 - `~/.claude/local/empresa.md` — curto (até ~150 linhas): warehouse, função `extrai()`
   pronta para colar, sentinelas, tabelas centrais, convenções, proibições.
 - `~/.claude/local/config.yaml` — `dicionarios_dir` e o padrão de arquivo dos dicionários.
+- Se a área trabalha com crédito: `~/.claude/local/credito.md` a partir do modelo
+  (parâmetros canônicos com status "confirmado / a confirmar", direção da escala de risco,
+  target e janela de maturação). Se houver pacote privado de métricas (ex.
+  `credit_analytics`), copie para `~/.claude/local/pacotes/` e registre o caminho em
+  `pacotes:` no `config.yaml`.
 - Se a equipe usa comandos de leitura que pedem aprovação toda hora, proponha regras
   `allow` para `~/.claude/settings.local.json` e mostre antes de gravar.
 
 ## 4. Verificar
 
-1. `python ~/.claude/bin/schema.py <uma tabela central>` precisa devolver colunas.
+1. `python3 ~/.claude/bin/schema.py <uma tabela central>` precisa devolver colunas.
 2. Uma extração de teste com `LIMIT 5` usando a `extrai()` do `empresa.md`.
 3. Mostre ao usuário a saída dos dois e o resumo do que foi gravado.

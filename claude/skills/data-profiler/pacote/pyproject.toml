@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "data-profiler"
+version = "1.0.0"
+description = "Profiling, poder preditivo e associação entre variáveis (Polars/PySpark) para risco de crédito"
+requires-python = ">=3.10"
+dependencies = ["polars>=1.0", "numpy>=1.24", "scipy>=1.10"]
+
+[project.optional-dependencies]
+spark = ["pyspark>=3.5"]
+binning = ["optbinning", "scikit-learn"]
+report = ["openpyxl", "plotly"]
+extra = ["lightgbm", "phik"]
+dev = ["pytest", "pandas", "pyarrow"]
+
+[tool.setuptools.packages.find]
+include = ["data_profiler*"]
+
+[tool.pytest.ini_options]
+markers = ["spark: testes que exigem PySpark e Java"]
+filterwarnings = ["ignore::FutureWarning"]

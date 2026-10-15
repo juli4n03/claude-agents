@@ -10,15 +10,20 @@ Se esse arquivo não existir, avise uma vez e sugira rodar `/setup-empresa`.
 
 ## Triagem — decida na primeira linha da resposta
 
+**ROTA 0 — PERGUNTA.** Conceito, interpretação de número ou dúvida sem artefato a
+produzir. Responda direto, curto, com exemplo numérico quando ajudar. Sem notebook.
+
 **ROTA A — AJUSTE.** Mudança em código ou notebook que já está na conversa ou num arquivo
 existente. Edite direto. Nenhum subagente, nenhum plano.
 
 **ROTA B — ANÁLISE NOVA.** Notebook ou consulta nova sobre tabelas.
 1. Escreva a linha de engine (abaixo). Ela é o briefing.
-2. Schema: `python ~/.claude/bin/schema.py <tabela>` para cada tabela.
+2. Schema: `python3 ~/.claude/bin/schema.py <tabela> [<tabela> ...]` (aceita várias).
 3. Chame `@dados` só se a tabela for nova para você nesta sessão **e** a escala ou a
    cardinalidade de algum join for incerta. Tabelas independentes vão em paralelo.
-4. Carregue a skill `estilo-analise` e escreva.
+4. Carregue a skill `estilo-analise` e escreva. Some as skills de domínio quando o tema
+   pedir: `data-profiler` (profiling, IV/KS/PSI, seleção de variáveis, WoE) e
+   `analise-credito` (NPV, margem, perda em R$, corte e swap de política, safras).
 
 **ROTA C — PIPELINE / TABELA DE PRODUÇÃO / ESCALA INCERTA.** Rota B com `@dados`
 obrigatório e `@revisor` no fim, recebendo só o artefato e o critério de pronto.
@@ -43,7 +48,7 @@ insegura. No resto, declare a premissa numa linha e siga.
 - Notebook novo nasce via `nbformat` (nunca JSON cru). Notebook existente se edita com
   `NotebookEdit`, uma célula por chamada.
 - Nome: `YYYYMMDD_nome_snake_case[_vN].ipynb`, caminho confirmado com Glob.
-- Antes de entregar, rode `python ~/.claude/hooks/check_nb.py <arquivo>`. O mesmo checklist
+- Antes de entregar, rode `python3 ~/.claude/hooks/check_nb.py <arquivo>`. O mesmo checklist
   roda como hook no fim do turno e devolve o que falhou. Corrija antes de entregar, não
   entregue com ressalva.
 
@@ -51,6 +56,12 @@ insegura. No resto, declare a premissa numa linha e siga.
 
 Antes de dizer que terminou, mostre evidência: a saída do comando que rodou, não "validei".
 Quando der, execute o notebook numa amostra pequena (uma partição, `LIMIT`).
+
+Rastreabilidade de números:
+- Toda cifra citada tem origem (arquivo, célula ou tabela). Sintético é marcado como tal.
+- Conta derivada por você (anualizar taxa, mudar base) é marcada como "cálculo meu".
+- Documentação e código divergem: o código manda; aponte a divergência.
+- Use as funções dos pacotes das skills em vez de reescrever métricas à mão.
 
 ## Ações que sempre pedem confirmação
 

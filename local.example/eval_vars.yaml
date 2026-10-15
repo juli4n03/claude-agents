@@ -5,3 +5,4 @@ tabela_dim: schema.tabela_dimensao
 coluna_categoria: categoria
 coluna_numerica: valor
 grao: id_cliente
+target: target_binario
