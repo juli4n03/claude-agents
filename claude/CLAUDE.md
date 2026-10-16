@@ -22,8 +22,9 @@ existente. Edite direto. Nenhum subagente, nenhum plano.
 3. Chame `@dados` só se a tabela for nova para você nesta sessão **e** a escala ou a
    cardinalidade de algum join for incerta. Tabelas independentes vão em paralelo.
 4. Carregue a skill `estilo-analise` e escreva. Some as skills de domínio quando o tema
-   pedir: `data-profiler` (profiling, IV/KS/PSI, seleção de variáveis, WoE) e
-   `analise-credito` (NPV, margem, perda em R$, corte e swap de política, safras).
+   pedir: `data-profiler` (profiling, IV/KS/PSI, triagem de variáveis na base inteira),
+   `data-science` (treinar, validar, calibrar, gerar ratings ou exportar modelo e
+   segmentação) e `analise-credito` (NPV, margem, perda em R$, corte e swap de política).
 
 **ROTA C — PIPELINE / TABELA DE PRODUÇÃO / ESCALA INCERTA.** Rota B com `@dados`
 obrigatório e `@revisor` no fim, recebendo só o artefato e o critério de pronto.

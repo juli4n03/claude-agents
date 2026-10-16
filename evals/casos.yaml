@@ -61,3 +61,9 @@
   skills: [analise-credito]
   prompt: "Qual a margem em NPV de um contrato de R$ 3.000 em 12x a 7,5% a.m. com PD de 5%?"
   criterio: "Usa a skill de crédito, calcula a perda sobre o total do contrato (não o principal), declara os parâmetros usados e de onde vieram."
+
+- id: b6_modelo_scorecard
+  rota: B
+  skills: [estilo-analise, data-science]
+  prompt: "Com as variáveis selecionadas de {tabela}, treine um scorecard para {target}, gere os ratings e me diga se ele está calibrado."
+  criterio: "Usa ModelSegmenter (logística com WoE), DES/OOT dentro e holdout fora do segmentador, passa -score às métricas avulsas, reporta KS/Gini do holdout e Hosmer-Lemeshow/backtest; roda no venv da skill."

@@ -9,6 +9,9 @@ Pacote próprio, versionado dentro desta skill em `${CLAUDE_SKILL_DIR}/pacote/`.
 Não reimplemente IV, KS, PSI ou binning à mão: chame o pacote, que já tem testes de
 paridade Polars × Spark e trata NaN, inf, strings vazias e sentinelas.
 
+Esta skill faz a **triagem** na base inteira. Treinar, gerar ratings, calibrar ou
+exportar o modelo é com a skill `data-science`, que recebe as variáveis eleitas aqui.
+
 ## Disponibilizar o pacote
 
 Preferência: instalado no ambiente (`pip install -e ${CLAUDE_SKILL_DIR}/pacote`, rodado
