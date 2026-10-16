@@ -5,3 +5,8 @@ dicionarios_dir: ~/dicionarios
 
 # Padrão de busca dentro da pasta (glob). O mais recente ganha.
 padrao: "**/*.y*ml"
+
+# Pacotes privados (código com regra de negócio da empresa). Ficam fora do git, dentro da
+# parte privada. Lidos pelas skills que dependem deles.
+pacotes:
+  credit_analytics: ~/.claude/local/pacotes/credit_analytics

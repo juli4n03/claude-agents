@@ -2,8 +2,10 @@
 """Checklist mecânico de notebooks.
 
 Uso:
+  - como hook UserPromptSubmit com `--marca`: grava a hora de início do turno;
   - como hook Stop: quando o Claude vai encerrar o turno, checa os .ipynb da pasta do
-    projeto modificados nos últimos 30 minutos;
+    projeto modificados desde o início do turno (sem marca, nos últimos 30 minutos).
+    Assim um notebook que eu editei no Jupyter não bloqueia o turno do Claude;
   - na linha de comando: python check_nb.py caminho/do/notebook.ipynb [...]
 
 Sai com código 2 e lista os problemas no stderr quando algo falha. No hook Stop isso
@@ -15,13 +17,18 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import re
 import sys
+import tempfile
 import time
 import tokenize
 from pathlib import Path
 
 JANELA_SEG = 30 * 60
+PROFUNDIDADE_MAX = 4
+PASTAS_IGNORADAS = {".git", ".venv", "venv", "node_modules", "__pycache__", ".ipynb_checkpoints", ".claude"}
+DIR_MARCAS = Path(tempfile.gettempdir()) / "claude_check_nb"
 
 PADRAO_NOME = re.compile(r"^\d{8}_[a-z0-9]+(?:_[a-z0-9]+)*(?:_v\d+)?\.ipynb$")
 JOIN = re.compile(r"\.join\(")
@@ -93,8 +100,54 @@ def checa(caminho: Path) -> list[str]:
     return problemas
 
 
+def _arquivo_marca(sessao: str) -> Path:
+    return DIR_MARCAS / f"{re.sub(r'[^A-Za-z0-9_-]', '_', sessao or 'sem_sessao')}.txt"
+
+
+def _marca_turno() -> int:
+    """Hook UserPromptSubmit: registra o início do turno desta sessão."""
+    try:
+        dados = json.load(sys.stdin)
+    except json.JSONDecodeError:
+        return 0
+    DIR_MARCAS.mkdir(exist_ok=True)
+    _arquivo_marca(dados.get("session_id", "")).write_text(str(time.time()))
+    return 0
+
+
+def _inicio_turno(sessao: str) -> float:
+    try:
+        return float(_arquivo_marca(sessao).read_text())
+    except (OSError, ValueError):
+        return time.time() - JANELA_SEG
+
+
+def _notebooks(raiz: Path, desde: float) -> list[Path]:
+    """Notebooks até PROFUNDIDADE_MAX níveis abaixo da raiz, modificados desde `desde`.
+
+    Poda as pastas ignoradas e ocultas antes de descer, para o hook não varrer um
+    ambiente virtual ou o home inteiro a cada turno.
+    """
+    achados = []
+    base = len(raiz.parts)
+    for pasta, subpastas, arquivos in os.walk(raiz):
+        nivel = len(Path(pasta).parts) - base
+        subpastas[:] = [] if nivel >= PROFUNDIDADE_MAX - 1 else [
+            s for s in subpastas if s not in PASTAS_IGNORADAS and not s.startswith(".")
+        ]
+        for nome in arquivos:
+            if nome.endswith(".ipynb"):
+                p = Path(pasta) / nome
+                try:
+                    if p.stat().st_mtime >= desde:
+                        achados.append(p)
+                except OSError:
+                    continue
+    return achados
+
+
 def _caminhos_do_hook() -> list[Path]:
-    """Hook Stop: checa os notebooks da pasta do projeto modificados nos últimos 30 min."""
+    """Hook Stop: checa os notebooks da pasta do projeto modificados neste turno."""
     try:
         dados = json.load(sys.stdin)
     except json.JSONDecodeError:
@@ -102,15 +155,12 @@ def _caminhos_do_hook() -> list[Path]:
     if dados.get("stop_hook_active"):
         return []  # já bloqueou uma vez neste turno; não entra em loop
     raiz = Path(dados.get("cwd") or ".")
-    limite = time.time() - JANELA_SEG
-    return [
-        p for p in raiz.glob("**/*.ipynb")
-        if ".ipynb_checkpoints" not in p.parts and len(p.relative_to(raiz).parts) <= 4
-        and p.stat().st_mtime >= limite
-    ]
+    return _notebooks(raiz, _inicio_turno(dados.get("session_id", "")))
 
 
 def main() -> int:
+    if sys.argv[1:] == ["--marca"]:
+        return _marca_turno()
     caminhos = [Path(p) for p in sys.argv[1:]] or _caminhos_do_hook()
     falhas = []
     for p in caminhos:

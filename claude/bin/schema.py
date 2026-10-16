@@ -38,22 +38,34 @@ def _casa(chave: str, alvo: str) -> bool:
     return chave == alvo or chave.split(".")[-1] == alvo.split(".")[-1]
 
 
-def _procura(no, alvo: str):
+def _casa_exato(nome: str, alvo: str, ancestrais: tuple[str, ...]) -> bool:
+    """Nome completo igual, ou nome sem schema dentro de um nó cujo ancestral é o schema."""
+    nome, alvo = nome.lower(), alvo.lower()
+    if nome == alvo:
+        return True
+    if "." in alvo and "." not in nome:
+        schema, tabela = alvo.rsplit(".", 1)
+        return nome == tabela and schema in (a.lower() for a in ancestrais)
+    return False
+
+
+def _procura(no, alvo: str, exato: bool, ancestrais: tuple[str, ...] = ()):
     """Procura recursivamente uma chave ou um campo de nome igual ao alvo."""
+    casa = (lambda n: _casa_exato(n, alvo, ancestrais)) if exato else (lambda n: _casa(n, alvo))
     if isinstance(no, dict):
         for k, v in no.items():
-            if isinstance(k, str) and _casa(k, alvo) and isinstance(v, (dict, list)):
+            if isinstance(k, str) and casa(k) and isinstance(v, (dict, list)):
                 return {k: v}
         for campo in CAMPOS_NOME:
-            if isinstance(no.get(campo), str) and _casa(no[campo], alvo):
+            if isinstance(no.get(campo), str) and casa(no[campo]):
                 return no
-        filhos = no.values()
+        filhos = [(v, ancestrais + (k,) if isinstance(k, str) else ancestrais) for k, v in no.items()]
     elif isinstance(no, list):
-        filhos = no
+        filhos = [(v, ancestrais) for v in no]
     else:
         return None
-    for filho in filhos:
-        achado = _procura(filho, alvo)
+    for filho, anc in filhos:
+        achado = _procura(filho, alvo, exato, anc)
         if achado is not None:
             return achado
     return None
@@ -68,19 +80,36 @@ def main() -> int:
     if not arquivos:
         sys.exit(f"Nenhum dicionário em {pasta} com o padrão {padrao}.")
 
+    lidos: dict[Path, object] = {}
+
+    def carrega(arq: Path):
+        if arq not in lidos:
+            try:
+                lidos[arq] = yaml.safe_load(arq.read_text(encoding="utf-8"))
+            except yaml.YAMLError:
+                lidos[arq] = None
+        return lidos[arq]
+
+    def busca(alvo: str, exato: bool):
+        for arq in arquivos:
+            achado = _procura(carrega(arq), alvo, exato)
+            if achado is not None:
+                return arq, achado
+        return None
+
     codigo = 0
     for alvo in sys.argv[1:]:
-        for arq in arquivos:
-            try:
-                dados = yaml.safe_load(arq.read_text(encoding="utf-8"))
-            except yaml.YAMLError:
-                continue
-            achado = _procura(dados, alvo)
-            if achado is not None:
-                data = datetime.fromtimestamp(arq.stat().st_mtime).strftime("%Y-%m-%d")
-                print(f"# {alvo} — fonte: {arq} (modificado em {data})")
-                print(yaml.safe_dump(achado, allow_unicode=True, sort_keys=False))
-                break
+        # Primeiro o nome completo em todos os dicionários; só depois só o nome da tabela,
+        # para `schema_a.clientes` não devolver `schema_b.clientes` de um arquivo mais novo.
+        resultado = busca(alvo, exato=True)
+        if resultado is None and (resultado := busca(alvo, exato=False)) is not None and "." in alvo:
+            print(f"# aviso: {alvo} casou só pelo nome da tabela; confira se o schema é o mesmo.",
+                  file=sys.stderr)
+        if resultado is not None:
+            arq, achado = resultado
+            data = datetime.fromtimestamp(arq.stat().st_mtime).strftime("%Y-%m-%d")
+            print(f"# {alvo} — fonte: {arq} (modificado em {data})")
+            print(yaml.safe_dump(achado, allow_unicode=True, sort_keys=False))
         else:
             print(f"# {alvo}: não encontrado em {len(arquivos)} dicionário(s). Use o fallback do warehouse.",
                   file=sys.stderr)

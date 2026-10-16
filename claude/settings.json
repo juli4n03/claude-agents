@@ -10,7 +10,9 @@
       "Bash(pip show *)",
       "Bash(pip list *)",
       "Bash(python ~/.claude/bin/schema.py *)",
+      "Bash(python3 ~/.claude/bin/schema.py *)",
       "Bash(python ~/.claude/hooks/check_nb.py *)",
+      "Bash(python3 ~/.claude/hooks/check_nb.py *)",
       "Bash(aws s3 ls *)",
       "Bash(aws glue get-*)",
       "Bash(aws athena get-*)",
@@ -20,6 +22,7 @@
       "Read(~/.aws/credentials)",
       "Read(~/.ssh/**)",
       "Read(**/.env)",
+      "Read(**/.env.*)",
       "Bash(git push --force *)",
       "Bash(git push -f *)",
       "Bash(aws glue delete-*)",
@@ -27,7 +30,24 @@
       "Bash(aws s3api delete-*)"
     ]
   },
+  "enabledPlugins": {
+    "context7@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "claude-code-setup@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-plugins-official": {
+      "source": { "source": "github", "repo": "anthropics/claude-plugins-official" }
+    }
+  },
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3 ~/.claude/hooks/check_nb.py --marca" }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",
