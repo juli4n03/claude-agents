@@ -42,9 +42,10 @@ Copie os modelos de `~/.claude/local.example/` e preencha:
 - `~/.claude/local/config.yaml` — `dicionarios_dir` e o padrão de arquivo dos dicionários.
 - Se a área trabalha com crédito: `~/.claude/local/credito.md` a partir do modelo
   (parâmetros canônicos com status "confirmado / a confirmar", direção da escala de risco,
-  target e janela de maturação). Se houver pacote privado de métricas (ex.
-  `credit_analytics`), copie para `~/.claude/local/pacotes/` e registre o caminho em
-  `pacotes:` no `config.yaml`.
+  target e janela de maturação). O pacote `credit_analytics` vem do repositório
+  privado pelo `install.sh`; se não apareceu em `~/.claude/local/pacotes/`, peça para eu
+  rodar `gh auth login` e o `install.sh` de novo. Outros pacotes privados: registre o
+  caminho em `pacotes:` no `config.yaml`.
 - Se a equipe usa comandos de leitura que pedem aprovação toda hora, proponha regras
   `allow` para `~/.claude/settings.local.json` e mostre antes de gravar.
 

@@ -10,6 +10,8 @@
 # --memoria         também guarda a memória automática do Claude Code em CLAUDE_LOCAL_DIR,
 #                   para a pasta de trabalho atual (ou a raiz do repositório git dela).
 # --sem-plugins     não instala os plugins listados em PLUGINS.
+# CREDIT_ANALYTICS_REPO  repositório privado do credit_analytics (padrão: juli4n03/credit-analytics),
+#                   clonado em CLAUDE_LOCAL_DIR/pacotes/ quando a máquina tem acesso.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -90,8 +92,22 @@ if python3 -m pip install -q -e "$REPO/claude/skills/data-profiler/pacote" 2>/de
 else
   echo "  Aviso: data_profiler não instalado; a skill usa sys.path como alternativa."
 fi
-[[ -d "$LOCAL_DIR/pacotes/credit_analytics" ]] \
-  || echo "  credit_analytics ausente em $LOCAL_DIR/pacotes/ (privado; copie se a área for crédito)"
+
+# credit_analytics mora num repositório privado: só entra se esta máquina tiver acesso.
+CREDIT="$LOCAL_DIR/pacotes/credit_analytics"
+CREDIT_REPO="${CREDIT_ANALYTICS_REPO:-https://github.com/juli4n03/credit-analytics.git}"
+if [[ -d "$CREDIT/.git" ]]; then
+  git -C "$CREDIT" pull -q --ff-only 2>/dev/null && echo "  credit_analytics atualizado" \
+    || echo "  Aviso: não consegui atualizar $CREDIT (seguindo com a versão local)"
+elif GIT_TERMINAL_PROMPT=0 git clone -q "$CREDIT_REPO" "$CREDIT" 2>/dev/null; then
+  echo "  credit_analytics clonado do repositório privado"
+else
+  echo "  credit_analytics não instalado (sem acesso a $CREDIT_REPO; faça 'gh auth login' e rode de novo)"
+fi
+if [[ -d "$CREDIT" ]]; then
+  python3 -m pip install -q -e "$CREDIT" 2>/dev/null && echo "  credit_analytics instalado (editável)" \
+    || echo "  Aviso: pip falhou; a skill usa sys.path como alternativa."
+fi
 
 if (( PLUGINS_ON )); then
   echo "Plugins"

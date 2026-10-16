@@ -12,8 +12,9 @@ Nada de parâmetro de empresa mora neste repositório. Antes de calcular:
 1. Leia `~/.claude/local/credito.md` (se existir): taxas canônicas, direção da escala de
    risco, nome do target, tabelas e pendências em aberto da empresa atual.
 2. O pacote de métricas fica no caminho `pacotes.credit_analytics` de
-   `~/.claude/local/config.yaml` (padrão `~/.claude/local/pacotes/credit_analytics`). Se
-   existir, **use as funções dele** em vez de reescrever a conta: elas têm testes com
+   `~/.claude/local/config.yaml` (padrão `~/.claude/local/pacotes/credit_analytics`,
+   clonado pelo `install.sh` do repositório privado `juli4n03/credit-analytics`). Confira
+   com `pip show credit-analytics`. Se existir, **use as funções dele** em vez de reescrever a conta: elas têm testes com
    valores de referência. Leia o `README.md` do pacote para o mapa
    métrica → função → gráfico, e o `params.py` para saber quais números estão valendo.
 3. Sem `credito.md` nem pacote: siga o método abaixo e declare cada parâmetro como

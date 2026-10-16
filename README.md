@@ -23,7 +23,7 @@ claude-agents/  (público)                  ~/.claude-local/  (privado, por empr
 │   ├── settings.json permissões, hooks,   ├── config.yaml         dicionários e pacotes
 │   │                 plugins              ├── settings.local.json overrides da máquina
 │   ├── agents/       dados, revisor       ├── eval_vars.yaml      nomes reais para o eval
-│   ├── skills/       estilo, setup,       ├── pacotes/            código privado (credit_analytics)
+│   ├── skills/       estilo, setup,       ├── pacotes/            clone do repo privado credit_analytics
 │   │                 data-profiler,       ├── cache/              perfis de tabela
 │   │                 analise-credito      ├── evals/              resultados das rodadas
 │   ├── hooks/        guard_bash, check_nb,└── memoria/            memória automática
@@ -57,8 +57,9 @@ Subtarefas que dependem do contexto atual vão com `/subtask` (fork, reaproveita
   correlação em Polars ou PySpark com o mesmo schema. O pacote (41 testes) vem dentro da
   skill e o `install.sh` o instala em modo editável.
 - **`analise-credito`**: método PD → perda em R$ → margem em NPV → corte e swap. Só o
-  método é público; os parâmetros (`credito.md`) e o pacote `credit_analytics` ficam na
-  parte privada.
+  método é público. O pacote `credit_analytics` fica no repositório **privado**
+  `juli4n03/credit-analytics`, que o `install.sh` clona em `pacotes/` quando a máquina
+  tem acesso (`gh auth login`); os parâmetros da empresa ficam em `credito.md`.
 - **`guard_bash.py`** (hook antes de cada comando): pede confirmação para DROP, DELETE,
   INSERT/UPDATE/MERGE/CREATE TABLE, escrita com overwrite, remoção no lake, `rm -rf` em
   qualquer ordem de flags e `git push`, mesmo em auto mode.
