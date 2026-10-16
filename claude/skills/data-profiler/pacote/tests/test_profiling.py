@@ -121,6 +121,7 @@ def test_entrada_pandas_e_warning_tamanho(base):
 
 
 def test_exportacoes(res, tmp_path):
+    pytest.importorskip("openpyxl")
     xlsx = res.to_excel(str(tmp_path / "p.xlsx"))
     arquivos = res.to_parquet(str(tmp_path / "pq"))
     assert xlsx.endswith(".xlsx") and (tmp_path / "p.xlsx").exists()

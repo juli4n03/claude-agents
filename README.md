@@ -8,7 +8,8 @@ git clone https://github.com/juli4n03/claude-agents ~/claude-agents
 CLAUDE_LOCAL_DIR=~/<disco-persistente>/claude-local ~/claude-agents/install.sh --memoria
 ```
 
-e, dentro do `claude`, `/setup-empresa`.
+e, dentro do `claude`, `/setup-empresa`. Em máquina onde vou modelar, acrescente
+`--data-science` (cria o venv da skill de modelagem, ~1,2 GB).
 
 ## Ideia
 
@@ -23,11 +24,12 @@ claude-agents/  (público)                  ~/.claude-local/  (privado, por empr
 │   ├── settings.json permissões, hooks,   ├── config.yaml         dicionários e pacotes
 │   │                 plugins              ├── settings.local.json overrides da máquina
 │   ├── agents/       dados, revisor       ├── eval_vars.yaml      nomes reais para o eval
-│   ├── skills/       estilo, setup,       ├── pacotes/            clone do repo privado credit_analytics
-│   │                 data-profiler,       ├── cache/              perfis de tabela
-│   │                 analise-credito      ├── evals/              resultados das rodadas
-│   ├── hooks/        guard_bash, check_nb,└── memoria/            memória automática
-│   │                 so_cache
+│   ├── skills/       estilo, setup,       ├── pacotes/            clones privados: credit_analytics,
+│   │                 data-profiler,       │                       yggdrasil-project
+│   │                 data-science,        ├── venvs/data-science/ venv da skill de modelagem
+│   │                 analise-credito      ├── cache/              perfis de tabela
+│   ├── hooks/        guard_bash, check_nb,├── evals/              resultados das rodadas
+│   │                 so_cache             └── memoria/            memória automática
 │   └── bin/          schema.py
 ├── local.example/  modelos da parte privada
 └── evals/          casos e runner
@@ -56,6 +58,13 @@ Subtarefas que dependem do contexto atual vão com `/subtask` (fork, reaproveita
 - **`data-profiler`**: profiling, WoE/IV, KS, PSI, estabilidade por safra, vazamento e
   correlação em Polars ou PySpark com o mesmo schema. O pacote (41 testes) vem dentro da
   skill e o `install.sh` o instala em modo editável.
+- **`data-science`**: do lote de variáveis triadas ao modelo em produção: seleção,
+  logística/WoE ou boosting monotônico, Optuna validado por safra, ratings, calibração,
+  backtest, holdout e exportação em SQL/PySpark. Motor: [Yggdrasil](https://github.com/richardguilhermeds/Yggdrasil-Project)
+  (MIT), instalado da cópia **privada** `juli4n03/yggdrasil-project` na tag `0.0.22`
+  (com o wheel do PyPI guardado na release), num venv próprio com `scikit-learn<1.8`,
+  `pandas<3` e `mlflow<3`. Se o original sumir, nada muda; versão nova só depois de
+  testar (passo a passo no fim da SKILL.md).
 - **`analise-credito`**: método PD → perda em R$ → margem em NPV → corte e swap. Só o
   método é público. O pacote `credit_analytics` fica no repositório **privado**
   `juli4n03/credit-analytics`, que o `install.sh` clona em `pacotes/` quando a máquina
@@ -107,4 +116,6 @@ e compare os CSVs.
 
 Claude Code recente (o agent `@dados` usa `omitClaudeMd`, de 2.1.271, e hooks no
 frontmatter), Python 3.10+, `pyyaml` e `nbformat`. Para as skills: `polars numpy scipy`
-(`data-profiler`) e `matplotlib duckdb` (`credit_analytics`).
+(`data-profiler`) e `matplotlib duckdb` (`credit_analytics`). `data-science` instala o
+próprio venv (`install.sh --data-science`) e precisa de `gh auth login` para clonar a
+cópia privada do Yggdrasil.

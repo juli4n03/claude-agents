@@ -12,6 +12,8 @@
 # --sem-plugins     não instala os plugins listados em PLUGINS.
 # CREDIT_ANALYTICS_REPO  repositório privado do credit_analytics (padrão: juli4n03/credit-analytics),
 #                   clonado em CLAUDE_LOCAL_DIR/pacotes/ quando a máquina tem acesso.
+# --data-science    cria o venv da skill data-science (~1,2 GB): Yggdrasil da cópia privada
+#                   na tag YGGDRASIL_REF (padrão 0.0.22) + data_profiler + kernel Jupyter.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,10 +23,12 @@ LOCAL_DIR="${LOCAL_DIR/#\~/$HOME}"
 BACKUP="$CLAUDE/backup-$(date +%Y%m%d-%H%M%S)"
 MEMORIA=0
 PLUGINS_ON=1
+DATA_SCIENCE=0
 for arg in "$@"; do
   case "$arg" in
     --memoria) MEMORIA=1 ;;
     --sem-plugins) PLUGINS_ON=0 ;;
+    --data-science) DATA_SCIENCE=1 ;;
     *) echo "Opção desconhecida: $arg" >&2; exit 1 ;;
   esac
 done
@@ -107,6 +111,35 @@ fi
 if [[ -d "$CREDIT" ]]; then
   python3 -m pip install -q -e "$CREDIT" 2>/dev/null && echo "  credit_analytics instalado (editável)" \
     || echo "  Aviso: pip falhou; a skill usa sys.path como alternativa."
+fi
+
+if (( DATA_SCIENCE )); then
+  echo "Skill data-science"
+  # Yggdrasil vem da cópia privada, fixada numa tag: se o original sumir, nada muda aqui.
+  YGG="$LOCAL_DIR/pacotes/yggdrasil-project"
+  YGG_REPO="${YGGDRASIL_REPO:-https://github.com/juli4n03/yggdrasil-project.git}"
+  YGG_REF="${YGGDRASIL_REF:-0.0.22}"
+  VENV="$LOCAL_DIR/venvs/data-science"
+  if [[ ! -d "$YGG/.git" ]]; then
+    GIT_TERMINAL_PROMPT=0 git clone -q "$YGG_REPO" "$YGG" 2>/dev/null \
+      || { echo "  Sem acesso a $YGG_REPO: faça 'gh auth login' e rode de novo."; YGG=""; }
+  fi
+  if [[ -n "$YGG" ]]; then
+    git -C "$YGG" fetch -q --tags origin 2>/dev/null || true
+    git -C "$YGG" -c advice.detachedHead=false checkout -q "$YGG_REF"
+    echo "  Yggdrasil em $YGG_REF ($(git -C "$YGG" rev-parse --short HEAD))"
+    [[ -d "$VENV" ]] || python3 -m venv "$VENV"
+    PY="$VENV/bin/python"; [[ -x "$PY" ]] || PY="$VENV/Scripts/python"
+    "$PY" -m pip install -q --upgrade pip
+    if "$PY" -m pip install -q -c "$REPO/claude/skills/data-science/restricoes.txt" \
+         -e "$YGG" -e "$REPO/claude/skills/data-profiler/pacote" openpyxl ipykernel; then
+      "$PY" -m ipykernel install --user --name data-science --display-name "Python (data-science)" >/dev/null
+      echo "  venv: $VENV ($("$PY" -c 'import yggdrasil, pandas, sklearn, mlflow; print(f"yggdrasil {yggdrasil.__version__}, pandas {pandas.__version__}, sklearn {sklearn.__version__}, mlflow {mlflow.__version__}")'))"
+      echo "  kernel Jupyter: data-science"
+    else
+      echo "  Aviso: pip falhou no venv $VENV"
+    fi
+  fi
 fi
 
 if (( PLUGINS_ON )); then

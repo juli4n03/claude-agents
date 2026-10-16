@@ -142,5 +142,6 @@ def test_binning_arvore(base):
 
 
 def test_excel(res, tmp_path):
+    pytest.importorskip("openpyxl")
     p = res.to_excel(str(tmp_path / "pp.xlsx"))
     assert (tmp_path / "pp.xlsx").exists()

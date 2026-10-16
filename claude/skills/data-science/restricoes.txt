@@ -1,0 +1,7 @@
+# Restrições do venv da skill data-science (pip install -c restricoes.txt ...).
+# Com Yggdrasil 0.0.22 + estas versões: 527 testes passam, 0 falham (Python 3.13).
+# Sem elas, pandas 3 quebra o encoding do feature_selection e mlflow 3 recusa o
+# backend de arquivos e a serialização do modelo.
+scikit-learn<1.8
+pandas<3
+mlflow<3

@@ -75,5 +75,6 @@ def test_matriz_simetrica(res):
 
 
 def test_excel(res, tmp_path):
+    pytest.importorskip("openpyxl")
     res.to_excel(str(tmp_path / "c.xlsx"))
     assert (tmp_path / "c.xlsx").exists()
