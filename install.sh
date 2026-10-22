@@ -132,7 +132,7 @@ if (( DATA_SCIENCE )); then
     PY="$VENV/bin/python"; [[ -x "$PY" ]] || PY="$VENV/Scripts/python"
     "$PY" -m pip install -q --upgrade pip
     if "$PY" -m pip install -q -c "$REPO/claude/skills/data-science/restricoes.txt" \
-         -e "$YGG" -e "$REPO/claude/skills/data-profiler/pacote" openpyxl ipykernel; then
+         -e "$YGG" -e "$REPO/claude/skills/data-profiler/pacote" openpyxl ipykernel onnxmltools onnxruntime; then
       "$PY" -m ipykernel install --user --name data-science --display-name "Python (data-science)" >/dev/null
       echo "  venv: $VENV ($("$PY" -c 'import yggdrasil, pandas, sklearn, mlflow; print(f"yggdrasil {yggdrasil.__version__}, pandas {pandas.__version__}, sklearn {sklearn.__version__}, mlflow {mlflow.__version__}")'))"
       echo "  kernel Jupyter: data-science"

@@ -1,146 +1,198 @@
 ---
 name: data-science
-description: Modelagem de risco de crédito ponta a ponta com o Yggdrasil - seleção de variáveis, modelo (logística/WoE scorecard, LightGBM, XGBoost com monotonicidade), tuning Optuna por safra, ratings/grupos homogêneos, calibração, backtest, monitoramento (PSI de rating, migração) e exportação da régua em SQL ou PySpark. Use para treinar, validar, recalibrar ou exportar um modelo ou segmentação; a triagem inicial de variáveis na base inteira é da skill data-profiler.
+description: Pipeline de modelagem de risco de crédito ponta a ponta - desenho amostral (split por cliente, validação temporal, OOT intocado, maturação por alvo), montagem da base com joins validados e point-in-time, scorecard (logística/WoE) ou LightGBM com tuning Optuna temporal e poda por SHAP, ratings, calibração, comparação com scores incumbentes, valor incremental de fonte nova, swap, contrato do modelo e exportação ONNX/SQL/PySpark. Use para montar base de modelagem, treinar, validar, comparar, recalibrar ou exportar um modelo; a triagem inicial de variáveis na base inteira é da skill data-profiler.
 ---
 
-# Data science: do lote de variáveis ao modelo em produção
+# Data science: da base de modelagem ao modelo em produção
 
-Motor: **Yggdrasil 0.0.22** (MIT, richardguilhermeds), a partir da cópia privada
-`juli4n03/yggdrasil-project`, tag `0.0.22`. Não instale do PyPI: a skill depende da
-cópia fixada. Assinaturas das funções em [referencia.md](referencia.md).
+Dois motores, um contrato:
+- **Yggdrasil 0.0.22** (MIT, cópia privada `juli4n03/yggdrasil-project`, tag `0.0.22`):
+  scorecard, ratings, calibração, backtest, SQL/PySpark. API em [referencia.md](referencia.md).
+- **`kit_ds.py`** (nesta skill, testado): o que o Yggdrasil não cobre: desenho amostral,
+  joins validados e PIT, LightGBM com validação temporal, comparação pareada de scores,
+  swap, contrato do modelo e ONNX. Cada função existe porque o erro já aconteceu.
+
+As regras abaixo vêm de pipelines reais de crédito e dos bugs encontrados neles.
 
 ## Ambiente
 
-O Yggdrasil traz mlflow, shap, lightgbm, xgboost, optuna e optbinning (~1,2 GB) e só é
-estável com `scikit-learn<1.8`, `pandas<3` e `mlflow<3` ([restricoes.txt](restricoes.txt);
-com pandas 3 e mlflow 3 falham 5 testes). Por isso ele mora num venv próprio:
-
-- `~/.claude/local/venvs/data-science`, criado por `install.sh --data-science`, com o
-  `data_profiler` junto e o kernel Jupyter **`data-science`**. Notebook desta skill usa
-  esse kernel; script usa `~/.claude/local/venvs/data-science/bin/python`.
+- Venv `~/.claude/local/venvs/data-science` (criado por `install.sh --data-science`),
+  kernel Jupyter **`data-science`**. Versões travadas em [restricoes.txt](restricoes.txt)
+  (`scikit-learn<1.8`, `pandas<3`, `mlflow<3`: com elas 527 testes do Yggdrasil passam).
 - Confira antes de escrever:
-  `~/.claude/local/venvs/data-science/bin/python -c "import yggdrasil, data_profiler; print(yggdrasil.__version__)"`.
-  Se falhar, pare e peça para rodar `install.sh --data-science`; não faça `pip install`
-  avulso no ambiente principal.
-- Local, sem tracking server: `MLFLOW_TRACKING_URI=file:./mlruns` antes de qualquer
-  `log_*`.
+  `~/.claude/local/venvs/data-science/bin/python -c "import yggdrasil, data_profiler, lightgbm, onnxruntime"`.
+  Falhou: peça `install.sh --data-science`; não faça `pip install` avulso.
+- No notebook:
+  ```python
+  import sys; sys.path.insert(0, str(Path.home() / ".claude/skills/data-science"))
+  import kit_ds as k
+  ```
+- `SEED = 42` fixo em tudo (split, Optuna, LightGBM). Nunca `int(time.time())`: o split
+  muda a cada execução e o "teste" de um notebook vira treino do outro.
 
-## Contrato das amostras (leia antes de montar a base)
+## 1. Desenho amostral
 
-O Yggdrasil é pandas: treino roda no driver. Leve só as variáveis já triadas e uma
-amostra que caiba (o `data-profiler` faz a triagem na base inteira, em Polars/Spark).
-
-| amostra | papel | entra no `ModelSegmenter`? |
+| amostra | o que é | usado para |
 |---|---|---|
-| `DES` | treino e cortes de binning | sim (`ref_sample="DES"`) |
-| `OOT` | validação: tuning do Optuna, **fusão dos ratings**, métricas de shift | sim |
-| `HOLDOUT` | teste final, nunca visto | **não**: pontue com `seg.predict(df_holdout)` no fim |
+| `DES` | safras de desenvolvimento, fatia de **clientes** sorteada | treino (OPT no Optuna) |
+| `VAL` | últimas safras do desenvolvimento (janela temporal) | early stopping, escolha de trial, corte de poda, ratings, calibração |
+| `TESTE` (opcional) | os demais clientes das safras de DES | estabilidade in-time; não decide nada |
+| `OOT` | safras seguintes, nunca vistas | **um** número honesto no fim |
 
-Duas armadilhas do código que este contrato neutraliza:
-- O "OOT" interno é **a primeira amostra diferente da DES na ordem das linhas**
-  (`_oot_sample`). Com três amostras no mesmo DataFrame, uma ordenação diferente troca
-  o OOT em silêncio. Por isso o `HOLDOUT` fica fora.
-- `build_ratings(monotonic_fusion=True)` funde grupos olhando o alvo do OOT e o
-  `tune_optuna` maximiza a métrica no OOT: as métricas de OOT ficam otimistas. O número
-  que vai para comitê é o do `HOLDOUT`.
+- **Split por cliente, não por linha**: `k.split_por_entidade(df, "id_cliente", 0.3, seed=SEED)`.
+  O mesmo cliente em várias safras não pode estar dos dois lados.
+- **Grave a coluna de amostra** no parquet da base: o split é parte do dado, não do código.
+- **Maturação por alvo**: `tab = k.tabela_maturacao(df, "safra", ["ever60_m3", "ever30_m3", "fpd30"])`
+  e `k.ultima_safra_madura(tab, alvo)` define o fim do OOT **de cada alvo**. Alvo nulo =
+  imaturo: sai da amostra daquele alvo, nunca vira bom.
+- **Alvos alternativos** só são avaliados (no OOT de cada um), não otimizados.
+- **Quebra de público** (mudança de política, canal novo): a VAL deve ficar depois dela.
+- **OOT é para um número.** Escolha de variante, corte de SHAP, ranges do Optuna e limiares
+  saem da VAL. Registre cada variante que olhou o OOT em `k.registra_run(...)`: com 15
+  variantes comparadas no OOT, ele virou validação e você precisa de outro holdout.
 
-Safra imatura (sem janela de performance completa) não entra em nenhuma amostra.
+## 2. Montagem da base
 
-## Fluxo (um notebook, template da `estilo-analise`)
+- **Todo join** passa por `k.left_join_validado(esq, dir, chave, "fonte", col_safra="safra", ordem_dedup="dt_atualizacao")`:
+  deduplica a direita com ordem determinística, falha se a contagem mudar, cria
+  `match_fonte` **antes** de qualquer `fillna` e devolve a cobertura por safra. Safra com
+  cobertura destoante é fonte que não existia no período: exclua a variável ou o período.
+- **Dado com data própria** (bureau, folha, cadastro SCD-2) entra com
+  `k.join_pit(esq, dir, "id", "dt_ref", "dt_bureau", "bureau", lag_dias=N)`: só o que já
+  estava disponível na data de referência, considerando a defasagem de entrega.
+- **Mesma fonte em todas as amostras.** Se o DES usa o retroativo e o OOT a produção,
+  rode `k.reconcilia_fontes(df, "score_retro", "score_prod", "safra")` no overlap; sem
+  bater, a variável muda de definição entre treino e teste.
+- **Chave sem par não vira categoria**: cliente sem código não é "novo" por `fillna`;
+  é desconhecido e precisa da própria categoria (ou sair).
+- **Vazamento por categoria**, com assert antes de treinar:
+  `k.checa_vazamento(features, {"alvo": ["ever\\d+", "fpd"], "chave": ["^id_", "cpf"], "pos_decisao": ["atraso", "pagto"], "benchmark": ["^score_"]})`.
+- Sentinelas com significado ("sem presença na fonte", "sem evento na janela") ficam
+  como valor próprio no boosting e como faixa especial no binning (nunca "todo negativo
+  é missing").
+
+## 3. Modelo
+
+**Trilha A, scorecard (comitê, regulador, política):** Yggdrasil.
 
 ```python
-# 4. Modelo
 from yggdrasil.credit_risk.model import ModelSegmenter
-
-df_treino = pd_base[pd_base["amostra"].isin(["DES", "OOT"])].sort_values("amostra")  # DES antes de OOT
-df_holdout = pd_base[pd_base["amostra"] == "HOLDOUT"]
-
-seg = ModelSegmenter(df_treino, target="target", task_type="classification",
-                     sample_col="amostra", ref_sample="DES", date_col="dt_ref",
-                     features=VARIAVEIS, random_state=42)
-seg.select_features()                       # missing → constante → categóricas → iv → psi → monotonia → correlação
-print(seg.selection_)                        # trilha: selecionada / revisar / excluida e o motivo
-
-seg.fit(algorithm="logistica", transform="woe")          # scorecard, interpretável
-# ou: seg.tune_optuna(algorithm="lightgbm", n_trials=40, cv=4, time_aware=True,
-#                     stability_penalty=1.0, monotone=MONOTONIA)
+df_mod = df[df["amostra"].isin(["DES", "VAL"])].sort_values("amostra")   # DES antes de VAL
+seg = ModelSegmenter(df_mod, target=ALVO, sample_col="amostra", ref_sample="DES",
+                     date_col="dt_ref", features=FEATURES, random_state=SEED)
+seg.select_features()
+seg.fit(algorithm="logistica", transform="woe")
 seg.build_ratings(method="quantil", n_ratings="auto")
 ```
 
+**Trilha B, LightGBM (máximo de ordenação):** `kit_ds` + Yggdrasil para ratings.
+
 ```python
-# 5. Validações
-from yggdrasil.metrics import classification_metrics, bootstrap_metrics_ci
+des, val = df[df.amostra == "DES"], df[df.amostra == "VAL"]
+dv = pd.concat([des, val])
+mono = lambda fs: [MONO.get(f, 0) for f in fs]          # MONO = {feature: +1 | -1}, direção conhecida
 
-df_metricas = seg.metrics().set_index("amostra")          # linhas DES e OOT; colunas auc, gini, ks, brier...
-df_backtest = seg.backtest()                               # por safra: previsto x realizado, ic, status
-hl = seg.hosmer_lemeshow()                                 # statistic, p_value, df, n_groups, table
-df_h = seg.predict(df_holdout, col_reasons="motivo")       # score, rating, motivo_1..3
+def tunar(fs, n_trials=80):
+    return k.tune_lgbm_temporal(des[fs], des[ALVO], val[fs], val[ALVO], n_trials=n_trials,
+                                gap_max=0.05, monotone=mono(fs), seed=SEED)   # gap é filtro, não penalidade
 
-risco_h = -df_h["score"]                                   # score do Yggdrasil: maior = MENOS risco
-met_h = classification_metrics(df_holdout["target"], risco_h)
-ic_h = bootstrap_metrics_ci(df_holdout["target"], risco_h, metrics=("auc", "ks"), seed=42)
+res = tunar(FEATURES)
+imp = k.importancia_acumulada(k.refit_final(res, des[FEATURES], des[ALVO], monotone=mono(FEATURES)),
+                              des[FEATURES].sample(30_000, random_state=SEED))
+candidatos = {100: (FEATURES, res)}
+for pct in (97, 95, 90):                                 # poda decidida na VAL, nunca no OOT
+    fs = k.corta_por_importancia(imp, pct)
+    candidatos[pct] = (fs, tunar(fs, n_trials=40))
+melhor = max(c[1].auc_val for c in candidatos.values())
+pct, (feats, res_f) = min(((p, c) for p, c in candidatos.items() if c[1].auc_val >= melhor - 0.002),
+                          key=lambda pc: len(pc[1][0]))  # o menor conjunto empatado com o melhor
+modelo = k.refit_final(res_f, dv[feats], dv[ALVO], monotone=mono(feats))   # DES ∪ VAL, best_iter fixo
 
-assert met_h["auc"] > 0.5, "AUC < 0,5: direção do score trocada"
-assert met_h["ks"] > KS_MIN, "KS do holdout abaixo do mínimo"
-assert df_metricas.loc["OOT", "gini"] - met_h["gini"] < 0.05, "gini do OOT otimista frente ao holdout"
-assert hl["p_value"] > 0.05, "modelo descalibrado (Hosmer-Lemeshow)"
+seg = ModelSegmenter(dv.sort_values("amostra"), target=ALVO, sample_col="amostra",
+                     ref_sample="DES", date_col="dt_ref", features=feats, random_state=SEED)
+seg.set_model(modelo, features=feats)                    # ratings, backtest, HL e SQL do LightGBM
+seg.build_ratings(method="quantil", n_ratings="auto")
 ```
 
-**Direção do score.** `ModelSegmenter` usa `score_invertido=True` e `score_scale=1000`:
-score alto = cliente bom. As funções de `yggdrasil.metrics` esperam o contrário (valor
-alto = mais risco). Passe `-score` (ou a probabilidade) a elas: com o score cru o mesmo
-modelo sai com AUC 0,24 e KS 0 em vez de 0,76 e 0,40. `seg.metrics()` já corrige
-sozinho; só as chamadas avulsas precisam do sinal.
+- `res.auc_val` é **otimista** (a VAL escolheu iteração e trial). Rotule assim.
+- `refit_final` usa `n_estimators=best_iter` sem early stopping: parar no próprio treino
+  não regulariza e faz o "AUC de validação" virar in-sample.
+- Warm start (`trials_iniciais`) só com parâmetros do **mesmo** espaço e das mesmas features.
+- **Monotonicidade**: declare `MONO` (+1 / −1 / 0 por feature) quando a direção é
+  conhecida. Sem ela, confira `k.shap_por_faixa(modelo, X, feature, sentinelas)`: os
+  quartis devem andar na direção esperada e cada sentinela empurrar para um lado que faça
+  sentido.
+- Peso por recência só se a quebra de público justificar, e com a VAL decidindo λ.
 
-Escolha do algoritmo: **logística com WoE** quando o modelo vai para comitê, política
-ou regulador (coeficientes, `scorecard_table`, `logit_sql`); boosting com `monotone=`
-declarado quando o ganho de KS no **holdout** paga a perda de interpretabilidade.
-Sem `monotone`, boosting pode inverter a relação de uma variável com o risco.
+## 4. Avaliação
 
-## Ratings, calibração e monitoramento
+**Direção fixada antes, nunca pelo resultado.** `k.orienta(score, maior_eh_risco=...)`
+pela definição do score (PD: alto = risco; score de bureau e do Yggdrasil: alto = bom).
+`max(auc, 1-auc)` é proibido, e aplicado ao KS transforma 0,3 em 0,7.
 
-- `build_ratings`: `quantil` (default, fusão por teste de inversão) ou `arvore`/`optbin`.
-  Depois `seg.rating_table()` e `seg.adjacent_rating_tests()`: grupo vizinho sem
-  diferença significativa é para fundir.
-- Calibração por safra: `seg.backtest()` (previsto × realizado com IC e status) e
-  `seg.hosmer_lemeshow()`. Com probabilidades na mão: `reliability_table(y, p)` (IC de
-  Jeffreys por faixa) e `calibration_slope_intercept(y, p)` (ideal: slope ≈ 1,
-  intercept ≈ 0).
-- Incerteza: `bootstrap_metrics_ci(y, -score, metrics=("auc", "ks"))`; diferença entre
-  amostras com `shift_significance(...)` em vez de comparar números soltos.
-- Monitoramento: `seg.rating_psi_by_safra()`; fora do segmentador,
-  `yggdrasil.monitoring.psi_rating_over_time` e `rating_migration_matrix`.
+| pergunta | função | regra |
+|---|---|---|
+| quanto ordena? | `k.metricas(y, risco)` | AUC < 0,5 é aviso, não inversão |
+| contra os incumbentes? | `k.compara_scores(df_oot, ALVO, {"novo": ("pd", True), "bureau": ("score", False)}, referencia="bureau")` | **mesmas linhas** (interseção) e cobertura de cada um ao lado |
+| a fonte nova agrega? | `k.delta_pareado(y, risco_base, risco_base_mais_fonte)` | modelos aninhados nas mesmas linhas; ganho com IC pareado, não dois números soltos |
+| é estável? | `k.metricas_por_grupo(df, ALVO, "risco", "safra")`, idem por segmento | grupo sem `n_min` maus/bons sai nulo |
+| decis | `cortes = k.cortes_decis(risco_des)` e `k.aplica_decis(risco, cortes)` em todas as amostras | um só jogo de cortes, do treino; faixa 0 = sem score |
+| deriva | `k.estabilidade_decis(df, "safra", "faixa", ALVO)` e `k.psi(des, oot, especiais=SENT)` | nulos e cada sentinela com faixa própria |
+| calibrado? | `seg.backtest()`, `seg.hosmer_lemeshow()` | descalibrado: recalibre na VAL (Platt/isotônica), confira no OOT |
 
-## Segmentação por árvore
+- AUC de modelo só em amostras que ele não viu. Comparar o modelo em safras de treino
+  com score externo é injusto.
+- Benchmark com índice: depois de `reset_index` nos splits, alinhe por coluna de chave,
+  nunca por `df.loc[X.index]`.
+- Score de benchmark com coeficientes copiados para o código precisa da janela em que foi
+  treinado; se ela cruza o OOT, não é benchmark.
 
-Régua de segmentos explicável (ex. política por faixa):
-`TreeSegmenter(df_treino, target, sample_col="amostra", min_leaf_rows=...)` →
-`fit_auto(features=..., max_depth=3, min_iv=0.02)` → `metrics()` e `psi_by_safra()` →
-`to_sql(table=...)` para Athena ou `to_pyspark()` para o EMR. Atenção: as colunas de
-`metrics()` da árvore são `KS`, `AUC`, `Gini`, `taxa_default` (maiúsculas), diferente do
-`ModelSegmenter` (`ks`, `auc`, `gini`).
+## 5. Swap e população inteira
 
-## Exportar para produção
+`k.swap(df, ALVO, "risco_atual", "risco_novo", taxa_aprovacao=0.6)`: mesma taxa de
+aprovação nos dois scores; mantidos, swap_in, swap_out e reprovados com bad rate e IC.
 
-- SQL (Athena): `seg.to_sql(table=...)` (score + rating) ou `seg.logit_sql(...)`
-  (logística). Rode o SQL numa partição e compare com `seg.predict` nas mesmas linhas:
-  diferença acima de arredondamento é bug de exportação.
-- Spark (EMR): `seg.apply_spark(sdf)` pontua sem coletar a base.
-- Persistência: `seg.save(caminho)` grava JSON + `.model.joblib`. `ModelSegmenter.load`
-  faz unpickle: **só carregue arquivo que você mesmo gerou**.
-- MLflow (`seg.log_to_mlflow(...)`): confira no run que o artefato do modelo existe; o
-  logger do Yggdrasil engole erro de serialização e só deixa a tag `model_log_error`.
+- Bad rate só onde há alvo. `n_sem_alvo` (reprovados no passado, imaturos) é
+  **desconhecido**, não bom: aplicar a bad rate do decil do DES (parceling) subestima o
+  risco dos reprovados. Rotule como estimativa e diga o viés.
+- Pontuar a base inteira ("through the door") exige recriar as features engenheiradas com
+  **a mesma função** do treino e `k.valida_entrada(df, contrato)` antes: feature ausente
+  preenchida com sentinela em silêncio é pontuar outro cliente.
+
+## 6. Produção
+
+```python
+contrato = k.contrato_modelo(modelo, des, feats, alvo=ALVO, sentinelas=SENT,
+                             janelas=JANELAS, metricas_=METRICAS_OOT, commit=COMMIT)
+k.salva_contrato(contrato, "modelo/contrato.json")
+k.exporta_onnx(modelo, val[feats].sample(min(20_000, len(val)), random_state=SEED), "modelo/modelo.onnx",
+               tol_prob=1e-4, cortes=CORTES_DE_POLITICA)
+modelo.booster_.save_model("modelo/modelo.txt")            # formato nativo, não pickle
+```
+
+- O contrato traz ordem, dtype, % nulo, % por sentinela e percentis do treino (baseline
+  de drift), hash do **conteúdo** do treino, versões das bibliotecas e commit.
+- ONNX só vale com diferença de probabilidade ≤ `tol_prob` **e** as mesmas decisões nos
+  cortes; Spearman alto não basta.
+- Scorecard ou régua: `seg.to_sql(...)` / `seg.apply_spark(sdf)`; compare o SQL com
+  `seg.predict` numa partição.
+- Nada de `pickle.load` de caminho compartilhado nem "pickle mais recente da pasta":
+  carregue pelo caminho registrado no ledger.
 
 ## Não faça
 
-- Interfaces interativas (`ModelSegmenterUI`, `TreeSegmenterUI`): notebook entregue
-  precisa reproduzir sem cliques.
-- `MLPipeline` sem `problem_type="classification"` explícito (o default é regressão).
-- Reimplementar IV, KS, PSI, ratings ou WoE à mão: use o pacote.
+- Escolher direção, variante, corte de poda ou range de busca olhando o OOT.
+- Early stopping na mesma amostra que entra no treino final.
+- Comparar modelos rodados em populações diferentes (um só com score não nulo, outro na
+  base inteira).
+- Duas definições de decil, ou dois limites de PSI, no mesmo relatório.
+- `SHAP` com a amostra editada (trocar extremos por NaN muda o ramo das árvores).
+- `pip install` dentro do notebook; interfaces interativas (`*UI`) em notebook entregue.
+- Reimplementar KS, AUC, PSI, decis, swap ou WoE à mão: use `kit_ds`, Yggdrasil ou o
+  `data_profiler`.
 
 ## Atualizar o Yggdrasil
 
 Versão nova só depois de: `git -C ~/.claude/local/pacotes/yggdrasil-project fetch upstream`,
-ler o changelog, rodar os testes do pacote no venv da skill
-(`pytest tests/test_eda_*.py tests/test_metrics_*.py tests/test_ratings.py tests/test_model_segmenter.py tests/test_tree_segmenter.py`),
-criar a tag nova na cópia privada e mudar `YGGDRASIL_REF` no `install.sh`.
+ler o changelog, rodar os testes do pacote e os de `tests/test_kit_ds.py` no venv da
+skill, criar a tag nova na cópia privada e mudar `YGGDRASIL_REF` no `install.sh`.
