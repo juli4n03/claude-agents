@@ -30,6 +30,20 @@ Convenção: "risco" = valor alto é mais risco. `SEED = 42`.
 | produção | `exporta_onnx(modelo, X_amostra, caminho, tol_prob=1e-4, cortes=())` | relatório; falha se divergir; grava `<caminho>.io.json` |
 | produção | `registra_run(ledger_csv, **campos)` | ledger acumulado |
 
+## `relatorio_ds` (nesta skill; `tests/test_relatorio_ds.py`, 5 testes)
+
+| função | devolve |
+|---|---|
+| `relatorio_pdf(caminho, df, col_y, col_risco, col_amostra, col_safra, *, titulo, info=None, amostra_treino="DES", amostra_foco=None, rotulos=None, risco_eh_probabilidade=True, benchmarks=None, alvos_alternativos=(), col_segmento=None, modelo=None, features=None, sentinelas=(), n_shap=5000, top_features=12, swap_contra=None, taxa_aprovacao=None, n_min=50, seed)` | `{"caminho", "n_paginas", "tabelas"}`; tabelas: `metricas`, `benchmarks`, `por_safra`, `decis`, `composicao_decis`, `segmentos`, `hosmer_lemeshow`, `shap_importancia`, `psi`, `swap` (as que se aplicam) |
+| `relatorio_variaveis_pdf(caminho, df, features, col_safra, *, mascara_treino=None, col_y=None, sentinelas=(), n_faixas=4, titulo)` | `{"caminho", "n_paginas", "resumo"}` |
+| `hosmer_lemeshow(y, prob, n_grupos=10)` | `estatistica`, `gl`, `p_valor`, `grupos` |
+| `tabela_calibracao(y, prob, cortes)` | previsto × observado por faixa com IC de Jeffreys |
+| `curva_aprovacao(y, risco, pontos=50)` | bad rate da carteira aprovada por taxa de aprovação |
+
+`rotulos` padrão: DES/OPT = in-sample, VAL = seleção (otimista), TESTE = teste in-time,
+OOT = fora do tempo. Sem `modelo`, as páginas de SHAP saem; sem `benchmarks`, a de
+benchmarks e a de swap.
+
 # Yggdrasil 0.0.22
 
 Assinaturas extraídas do código da tag `0.0.22` e conferidas num smoke test. Em versão

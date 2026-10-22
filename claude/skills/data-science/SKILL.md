@@ -179,6 +179,44 @@ modelo.booster_.save_model("modelo/modelo.txt")            # formato nativo, nã
 - Nada de `pickle.load` de caminho compartilhado nem "pickle mais recente da pasta":
   carregue pelo caminho registrado no ledger.
 
+## 7. Relatórios PDF
+
+`relatorio_ds.py` (nesta skill) gera os PDFs no formato dos relatórios de modelagem,
+sem pyplot (roda no SageMaker/EMR sem interface gráfica) e com paleta neutra. Gere
+**depois** da escolha final: o OOT entra no relatório, não nas decisões.
+
+```python
+import relatorio_ds as rel
+df_aval = df.assign(pd=modelo.predict_proba(df[feats])[:, 1])          # todas as amostras
+rel.relatorio_pdf("saida/M1_avaliacao.pdf", df_aval, ALVO, "pd", "amostra", "safra",
+                  titulo="M1", info={"run_id": RUN_ID, "seed": SEED, "best_iter": res_f.best_iter},
+                  benchmarks={"bureau": ("score_bureau", False), "logistica": ("pd_logistica", True)},
+                  alvos_alternativos=["ever30_m3"], col_segmento="tipo_cliente",
+                  modelo=modelo, features=feats, sentinelas=SENT,
+                  swap_contra="bureau", taxa_aprovacao=TAXA_ATUAL)
+rel.relatorio_variaveis_pdf("saida/M1_variaveis.pdf", df_aval, imp["feature"].tolist(), "safra",
+                            mascara_treino=df_aval["amostra"].eq("DES"), col_y=ALVO, sentinelas=SENT)
+```
+
+| páginas de `relatorio_pdf` | conteúdo |
+|---|---|
+| capa | alvo, amostras com rótulo (in-sample, seleção, OOT) e n, `info`, features |
+| métricas | n, bad rate, AUC, Gini e KS por amostra e por alvo (alternativos só avaliados) |
+| benchmarks | tabela na população comum + AUC e KS por safra, com o fundo marcando VAL e OOT |
+| por safra | modelo safra a safra (safra sem `n_min` maus/bons sai sem número) |
+| curvas | ROC, KS (maus × bons acumulados) e ganho na amostra em foco |
+| decis | bad rate por faixa (cortes do treino) e bad rate da carteira aprovada |
+| estabilidade | composição das faixas por safra e bad rate faixa × safra |
+| segmentos | métricas por segmento na amostra em foco |
+| calibração | previsto × observado por faixa com IC de Jeffreys e Hosmer-Lemeshow por amostra |
+| SHAP | beeswarm (cinza = nulo/sentinela) por amostra e dependência das top features com SHAP médio por quartil, nulo e sentinela |
+| PSI | score e top features contra o treino (limites 0,10 e 0,25) |
+| swap | quadrantes contra o benchmark na mesma taxa de aprovação |
+
+A função devolve também as tabelas (`res["tabelas"]`) para o notebook mostrar ou gravar.
+`relatorio_variaveis_pdf`: resumo (% nulo, % sentinela, PSI máximo) + uma página por
+feature com % por faixa e safra, bad rate por faixa e PSI de cada safra contra o treino.
+
 ## Não faça
 
 - Escolher direção, variante, corte de poda ou range de busca olhando o OOT.

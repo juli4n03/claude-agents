@@ -63,7 +63,8 @@ Subtarefas que dependem do contexto atual vão com `/subtask` (fork, reaproveita
   point-in-time, scorecard ou LightGBM com tuning temporal e poda por SHAP, ratings,
   calibração, comparação pareada com scores incumbentes, valor incremental de fonte nova,
   swap, contrato do modelo e ONNX. O `kit_ds.py` da skill (17 testes) cobre o que o
-  Yggdrasil não tem. Motor de scorecard e ratings: [Yggdrasil](https://github.com/richardguilhermeds/Yggdrasil-Project)
+  Yggdrasil não tem, e o `relatorio_ds.py` (5 testes) gera os PDFs de avaliação do
+  modelo e de variáveis por safra. Motor de scorecard e ratings: [Yggdrasil](https://github.com/richardguilhermeds/Yggdrasil-Project)
   (MIT), instalado da cópia **privada** `juli4n03/yggdrasil-project` na tag `0.0.22`
   (com o wheel do PyPI guardado na release), num venv próprio com `scikit-learn<1.8`,
   `pandas<3` e `mlflow<3`. Se o original sumir, nada muda; versão nova só depois de
