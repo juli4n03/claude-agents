@@ -1,7 +1,41 @@
-# Referência da API usada pela skill (Yggdrasil 0.0.22)
+# Referência da API usada pela skill
+
+## `kit_ds` (nesta skill; `tests/test_kit_ds.py`, 17 testes)
+
+Convenção: "risco" = valor alto é mais risco. `SEED = 42`.
+
+| área | função | devolve |
+|---|---|---|
+| amostra | `split_por_entidade(df, col_entidade, frac_teste=0.3, seed, col_estrato=None)` | Series `treino`/`teste` por linha, sorteando entidades |
+| amostra | `tabela_maturacao(df, col_safra, alvos)` · `ultima_safra_madura(tab, alvo, pct_min=99)` | safra × alvo: n, % maduro, bad rate · fim do OOT do alvo |
+| base | `left_join_validado(esq, dir, on, nome, col_safra=None, ordem_dedup=None)` | `(df, cobertura_por_safra)`; cria `match_<nome>`; falha se a contagem mudar |
+| base | `join_pit(esq, dir, chave, data_esq, data_dir, nome, lag_dias=0)` | df com `pit_<nome>` e `defasagem_<nome>_dias` |
+| base | `reconcilia_fontes(df, col_a, col_b, col_safra=None, tol=0)` | n no overlap, % igual, diferença média e máxima |
+| base | `checa_vazamento(features, {categoria: [regex]})` | `AssertionError` listando as proibidas |
+| métrica | `orienta(score, maior_eh_risco)` · `ks(y, risco)` · `metricas(y, risco)` | n, bad_rate, auc, gini, ks (sem inverter) |
+| métrica | `metricas_por_grupo(df, col_y, col_risco, col_grupo, n_min=50)` | por safra/segmento; grupo pequeno sai nulo |
+| métrica | `delta_pareado(y, risco_a, risco_b, metricas_=("auc","ks"), n_boot=500, seed)` | delta B − A com IC pareado e `p_delta_le_0` |
+| métrica | `compara_scores(df, col_y, {rotulo: (coluna, maior_eh_risco)}, referencia=None)` | `(métricas na interseção + cobertura, deltas vs referência)` |
+| faixas | `cortes_decis(risco_treino, n=10)` · `aplica_decis(risco, cortes)` | cortes do treino · faixa 1 = menor risco, 0 = sem score |
+| faixas | `estabilidade_decis(df, col_safra, col_faixa, col_y=None)` | `{"composicao_pct", "bad_rate_pct"}` safra × faixa |
+| faixas | `psi(esperado, atual, n_bins=10, especiais=(), eps=1e-6)` | PSI com faixa de nulo e de cada sentinela |
+| swap | `swap(df, col_y, risco_atual, risco_novo, taxa_aprovacao)` | quadrantes + carteiras, bad rate com IC Jeffreys, `n_sem_alvo` |
+| lgbm | `tune_lgbm_temporal(X_opt, y_opt, X_val, y_val, n_trials=80, gap_max=0.05, seed, espaco=None, monotone=None, peso_opt=None, max_arvores=4000, paciencia=100, trials_iniciais=())` | `ResultadoTuning(params, best_iter, auc_opt, auc_val, gap, trials, aviso, estudo)` |
+| lgbm | `ESPACO_PADRAO` | dict `{param: (tipo, lo, hi)}`; tipos `int`, `log_int`, `float`, `log`; `num_leaves_frac` vira `num_leaves` |
+| lgbm | `refit_final(res, X, y, seed, monotone=None, peso=None)` | `LGBMClassifier` com `n_estimators=best_iter` |
+| lgbm | `importancia_acumulada(modelo, X_amostra=None, metodo="shap"\|"gain")` · `corta_por_importancia(tab, pct)` | ranking com `acumulado_pct` · lista de features |
+| lgbm | `shap_por_faixa(modelo, X_amostra, feature, sentinelas=(), n_quartis=4)` | SHAP médio por quartil válido, nulo e sentinela |
+| produção | `contrato_modelo(modelo, X_treino, features, alvo, sentinelas=(), janelas=None, metricas_=None, commit=None, extras=None)` · `salva_contrato(c, caminho)` | dict JSON-serializável |
+| produção | `valida_entrada(df, contrato)` | colunas na ordem do contrato; falha se faltar ou não for numérica |
+| produção | `exporta_onnx(modelo, X_amostra, caminho, tol_prob=1e-4, cortes=())` | relatório; falha se divergir; grava `<caminho>.io.json` |
+| produção | `registra_run(ledger_csv, **campos)` | ledger acumulado |
+
+# Yggdrasil 0.0.22
 
 Assinaturas extraídas do código da tag `0.0.22` e conferidas num smoke test. Em versão
-nova, confira de novo com `inspect.signature`.
+nova, confira de novo com `inspect.signature`. `ModelSegmenter.set_model(model, features=None)`
+recebe um modelo já ajustado (ex.: o LightGBM do `kit_ds`) e libera ratings, backtest,
+Hosmer-Lemeshow e `to_sql` para ele.
 
 ## `yggdrasil.credit_risk.model.ModelSegmenter`
 

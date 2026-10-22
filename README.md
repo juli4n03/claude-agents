@@ -58,9 +58,12 @@ Subtarefas que dependem do contexto atual vão com `/subtask` (fork, reaproveita
 - **`data-profiler`**: profiling, WoE/IV, KS, PSI, estabilidade por safra, vazamento e
   correlação em Polars ou PySpark com o mesmo schema. O pacote (41 testes) vem dentro da
   skill e o `install.sh` o instala em modo editável.
-- **`data-science`**: do lote de variáveis triadas ao modelo em produção: seleção,
-  logística/WoE ou boosting monotônico, Optuna validado por safra, ratings, calibração,
-  backtest, holdout e exportação em SQL/PySpark. Motor: [Yggdrasil](https://github.com/richardguilhermeds/Yggdrasil-Project)
+- **`data-science`**: da base de modelagem ao modelo em produção. Desenho amostral (split
+  por cliente, VAL temporal, OOT intocado, maturação por alvo), joins validados e
+  point-in-time, scorecard ou LightGBM com tuning temporal e poda por SHAP, ratings,
+  calibração, comparação pareada com scores incumbentes, valor incremental de fonte nova,
+  swap, contrato do modelo e ONNX. O `kit_ds.py` da skill (17 testes) cobre o que o
+  Yggdrasil não tem. Motor de scorecard e ratings: [Yggdrasil](https://github.com/richardguilhermeds/Yggdrasil-Project)
   (MIT), instalado da cópia **privada** `juli4n03/yggdrasil-project` na tag `0.0.22`
   (com o wheel do PyPI guardado na release), num venv próprio com `scikit-learn<1.8`,
   `pandas<3` e `mlflow<3`. Se o original sumir, nada muda; versão nova só depois de

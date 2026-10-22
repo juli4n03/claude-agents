@@ -78,6 +78,25 @@ Convenção: `woe = ln(%bons / %maus)`, então WoE **positivo concentra bons**. 
 na escala 0–100. Fórmulas completas e divergências Polars × Spark em
 [pacote/docs/METRICAS.md](pacote/docs/METRICAS.md): leia só a seção que precisar.
 
+## Feature store larga (centenas a milhares de colunas)
+
+- **Só no DES.** Triagem, redundância e cortes usam a amostra de desenvolvimento; VAL e
+  OOT entram só para estabilidade (`df_validacao=`). Filtro calculado com o OOT junto já
+  escolheu variável olhando o teste.
+- **Por grupo de variáveis** (book/fonte): `profile` e `poder_preditivo` com `colunas=` de
+  um grupo por vez sobre o mesmo `LazyFrame`/Spark DataFrame; nada de coletar a base
+  inteira para pandas. Junte os `resumo` no fim.
+- **Primeiro sem alvo, depois com alvo**: `profile` corta quase-constantes
+  (`pct_moda > 95%`) e identificadores; `poder_preditivo` corta sem poder e marca
+  vazamento.
+- **Redundância em duas rodadas**: `correlate` dentro de cada grupo e depois entre os
+  sobreviventes (com `CorrelacaoConfig(amostra=...)` em base grande). O desempate é pelo
+  IV (`redundante_com`), **nunca pela variância**, que depende da escala da variável.
+- Sentinelas viram faixa própria, não "todo valor negativo é missing": cada código
+  ("sem presença na fonte", "sem evento na janela") carrega risco diferente.
+- Registre os limiares usados ao lado da lista aprovada (JSON/CSV com versão): o
+  notebook de modelagem lê essa lista, não refaz a triagem.
+
 ## Armadilhas que o pacote já resolve (não "conserte" por fora)
 
 - Sentinelas numéricas: passe em `PoderPreditivoConfig(valores_especiais=(-9999,))` para
