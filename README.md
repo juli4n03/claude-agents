@@ -90,6 +90,7 @@ nem concorra com as rotas do `CLAUDE.md`.
 | `context7` | ligado | docs atuais de Polars, PySpark, boto3: menos API inventada. Manda só o nome da lib e a pergunta |
 | `claude-md-management` | ligado | `/revise-claude-md` incorpora o que a sessão aprendeu. Edita o repo (symlink): revise o diff |
 | `claude-code-setup` | ligado | recomenda automações para um projeto; leitura, uso pontual |
+| `databricks` | ligado | skills de Databricks (jobs, pipelines, DBSQL, Unity Catalog, DABs) via Databricks CLI; fala só com o workspace da empresa |
 | `superpowers` | opcional | método forte (plano, TDD, debug), mas o prompt impositivo compete com as rotas A/B/C e TDD rende pouco em notebook |
 | `feature-dev`, `code-review` | opcional | úteis em repositório de aplicação; em análise duplicam `@revisor` e o `/code-review` embutido |
 | `ponytail` | opcional | "escreva menos código"; injeta contexto em toda sessão e em todo subagente |

@@ -38,6 +38,7 @@ PLUGINS=(
   context7@claude-plugins-official
   claude-md-management@claude-plugins-official
   claude-code-setup@claude-plugins-official
+  databricks@claude-plugins-official
 )
 
 mkdir -p "$CLAUDE"

@@ -33,7 +33,8 @@
   "enabledPlugins": {
     "context7@claude-plugins-official": true,
     "claude-md-management@claude-plugins-official": true,
-    "claude-code-setup@claude-plugins-official": true
+    "claude-code-setup@claude-plugins-official": true,
+    "databricks@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "claude-plugins-official": {
