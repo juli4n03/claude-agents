@@ -13,3 +13,7 @@ __pycache__/
 Thumbs.db
 *.egg-info/
 .pytest_cache/
+
+# Skills sincronizadas pelo Claude Code (claude.ai), por máquina
+claude/skills/synced/
+claude/skills/.trash/
