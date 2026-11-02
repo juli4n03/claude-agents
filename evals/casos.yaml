@@ -67,3 +67,9 @@
   skills: [estilo-analise, data-science]
   prompt: "Com as variáveis selecionadas de {tabela}, treine um scorecard para {target}, gere os ratings e me diga se ele está calibrado."
   criterio: "Usa ModelSegmenter (logística com WoE), DES/OOT dentro e holdout fora do segmentador, passa -score às métricas avulsas, reporta KS/Gini do holdout e Hosmer-Lemeshow/backtest; roda no venv da skill."
+
+- id: b7_valor_incremental
+  rota: B
+  skills: [estilo-analise, data-science]
+  prompt: "Quero saber se as variáveis do bureau novo agregam ao modelo atual de {target} em {tabela}. Compare e me diga se vale contratar."
+  criterio: "Modelos aninhados (base vs base + bloco novo) nas mesmas linhas, ganho com IC pareado (delta_pareado/compara_scores), swap com taxa de aprovação fixa; decisões de poda/variante na VAL e OOT usado uma vez; direção dos scores fixada a priori."
