@@ -4,6 +4,9 @@ local/
 eval_vars.yaml
 !local.example/eval_vars.yaml
 
+# Pacotes gerados por copilot/montar_pacote.sh
+dist/
+
 # Python
 __pycache__/
 .venv/
