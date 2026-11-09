@@ -101,6 +101,18 @@ nem concorra com as rotas do `CLAUDE.md`.
 Para ligar um opcional numa máquina: `/plugin install superpowers@claude-plugins-official`
 (ou `claude plugin marketplace add <owner/repo>` antes, para os de terceiros).
 
+## Levar para Copilot e Databricks (Genie Code)
+
+`copilot/` guarda a versão do kit para empresas sem Claude Code: instruções e skills
+adaptadas ao Databricks (PySpark até o recorte, Unity Catalog), agentes e hooks do GitHub
+Copilot, instruções do Genie Code e roteiro de agente do Microsoft 365 Copilot. Os hooks
+são os mesmos de `claude/hooks/` (`--copilot` muda só a entrada e a saída).
+
+```bash
+copilot/montar_pacote.sh          # dist/kit_ia_copilot_AAAAMMDD.zip + texto do email
+python3 claude/hooks/test_hooks.py
+```
+
 ## Evoluir sem achismo
 
 ```bash

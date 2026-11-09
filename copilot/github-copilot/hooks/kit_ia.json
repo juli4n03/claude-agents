@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "hooks": {
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "bash": "python3 ~/.copilot/kit_ia/hooks/check_nb.py --copilot --marca",
+        "powershell": "python \"$HOME\\.copilot\\kit_ia\\hooks\\check_nb.py\" --copilot --marca",
+        "timeoutSec": 10
+      }
+    ],
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": "python3 ~/.copilot/kit_ia/hooks/guard_bash.py --copilot",
+        "powershell": "python \"$HOME\\.copilot\\kit_ia\\hooks\\guard_bash.py\" --copilot",
+        "timeoutSec": 10
+      }
+    ],
+    "agentStop": [
+      {
+        "type": "command",
+        "bash": "python3 ~/.copilot/kit_ia/hooks/check_nb.py --copilot",
+        "powershell": "python \"$HOME\\.copilot\\kit_ia\\hooks\\check_nb.py\" --copilot",
+        "timeoutSec": 60
+      }
+    ]
+  }
+}

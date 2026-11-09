@@ -1,0 +1,88 @@
+SUGESTÃO DE EMAIL — envio do Kit IA para o email da empresa
+================================================================
+
+Use a versão 1 se você só vai mandar o kit do seu email pessoal para o seu email
+corporativo e a política da empresa permite. Use a versão 2 se precisar de aval da
+TI / Segurança da Informação antes (recomendado se houver dúvida, principalmente
+pelos arquivos .py e .whl).
+
+Anexo: kit_ia_copilot_20261109.zip  (um único arquivo)
+
+
+----------------------------------------------------------------
+VERSÃO 1 — para o seu próprio email corporativo
+----------------------------------------------------------------
+
+Assunto: Kit IA — instruções e skills para Copilot / Genie Code (análise de dados)
+
+Corpo:
+
+Kit pessoal de instruções para assistentes de IA em análise de dados, para configurar o
+Copilot e o Genie Code no Databricks.
+
+Conteúdo do anexo (kit_ia_copilot_20261109.zip):
+- LEIA-ME.md: o que é e como instalar;
+- instrucoes/: regras de trabalho e modelo da seção da empresa (em branco);
+- skills/: 7 instruções especializadas (padrão de notebook, perfil de tabela, revisão,
+  profiling de variáveis, modelagem, crédito, setup);
+- genie-code/, github-copilot/, m365-copilot/: arquivos de configuração de cada assistente;
+- pacotes/: dois pacotes Python (data_profiler, de minha autoria, e yggdrasil_project
+  0.0.22, licença MIT).
+
+Não contém dados, credenciais nem informação de outras empresas.
+
+Primeiro passo: abrir LEIA-ME.md.
+
+
+----------------------------------------------------------------
+VERSÃO 2 — pedido de liberação para TI / Segurança da Informação
+----------------------------------------------------------------
+
+Assunto: Solicitação de avaliação — arquivos de configuração de IA (Copilot / Genie Code) para análise de dados
+
+Corpo:
+
+Olá, [nome / time de TI],
+
+Gostaria de usar no meu notebook corporativo e no Databricks um conjunto de arquivos
+de configuração para os assistentes de IA já liberados na empresa (Copilot e Genie
+Code). O objetivo é padronizar a qualidade das análises: padrão de notebook,
+validações de dados e confirmação obrigatória antes de comandos destrutivos.
+
+Segue em anexo o pacote (kit_ia_copilot_20261109.zip) para avaliação. Resumo do
+conteúdo:
+
+1. Arquivos de texto (.md, .txt, .json): instruções e configurações dos assistentes.
+   Não contêm dados, credenciais nem informações de clientes ou de outras empresas.
+2. Dois scripts Python de checagem local (github-copilot/kit_ia/hooks/):
+   - guard_bash.py: pede confirmação antes de comandos destrutivos (DROP, DELETE,
+     VACUUM, remoção de arquivos, git push etc.);
+   - check_nb.py: verifica o padrão dos notebooks (nome, validações, joins).
+   Os dois só leem a entrada do assistente e os notebooks da pasta de trabalho; não
+   acessam rede nem enviam dados. O código-fonte está em texto aberto para auditoria.
+3. Dois pacotes Python (pacotes/*.whl) para uso em notebooks do Databricks:
+   - data_profiler 1.0.0 (de minha autoria): métricas de variáveis (IV, KS, PSI);
+   - yggdrasil_project 0.0.22 (código aberto, licença MIT): modelagem de risco de
+     crédito. Ao instalar, baixa dependências públicas do PyPI (lightgbm, xgboost,
+     optuna, mlflow, entre outras).
+
+Pedidos:
+- autorização para usar os arquivos acima;
+- se necessário, liberação dos anexos .py/.whl no filtro de email ou indicação do
+  canal correto para recebê-los;
+- confirmação de que posso ativar o Genie Code com aprovação manual de ações e
+  instalar os pacotes com %pip nos notebooks (ou o espelho de PyPI a usar).
+
+Fico à disposição para mostrar o conteúdo.
+
+Obrigado,
+[seu nome]
+[área]
+
+
+----------------------------------------------------------------
+Observações
+----------------------------------------------------------------
+- Se o filtro de email bloquear o anexo, não renomeie extensões para passar pelo
+  filtro: peça a liberação ou o canal oficial à TI (versão 2).
+- Não inclua neste email nada da empresa anterior.
